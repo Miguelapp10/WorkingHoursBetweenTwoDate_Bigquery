@@ -1,6 +1,6 @@
 
 **Proyecto destacado: Calculadora de Horas Laborales**
-Como parte de mi pasión por la programación, he creado un proyecto notable en GitHub llamado "WorkingHoursBetweenTwoDates". Este proyecto es una calculadora de horas laborales que determina la cantidad de horas trabajadas entre dos fechas, teniendo en cuenta días hábiles y horas de trabajo especificadas. Utilicé SQL (Bigquery) para desarrollar esta herramienta, y lo diseñé para ser fácilmente accesible y personalizable para diferentes escenarios laborales.
+Como parte de mi pasión por la automatizaciones, he creado un gran proyecto en GitHub llamado "WorkingHoursBetweenTwoDates". Este proyecto es una calculadora de horas laborales que determina la cantidad de horas trabajadas entre dos fechas, teniendo en cuenta días hábiles y horas de trabajo especificadas. Utilicé SQL (Bigquery) para desarrollar esta herramienta, y lo diseñé para ser fácilmente accesible y personalizable para diferentes escenarios laborales.
 
 * Desarrollé este proyecto para abordar la necesidad común de calcular las horas de trabajo entre dos fechas de manera eficiente y precisa.
 * Implementé algoritmos que tienen en cuenta días hábiles, fines de semana y horas laborales personalizables para adaptarse a diferentes configuraciones de trabajo.
