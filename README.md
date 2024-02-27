@@ -6,5 +6,5 @@ Como parte de mi pasión por la programación, he creado un proyecto notable en 
 * Implementé algoritmos que tienen en cuenta días hábiles, fines de semana y horas laborales personalizables para adaptarse a diferentes configuraciones de trabajo.
 * Este proyecto demuestra mi habilidad para abordar problemas prácticos con soluciones técnicas innovadoras y eficaces.
 
-¡Echa un vistazo al proyecto en GitHub para obtener más detalles y no dudes en contactarme si tienes alguna pregunta 965669842 o sugerencia sobre este proyecto o cualquier otro aspecto de mi trabajo ! 
+¡Echa un vistazo al proyecto en GitHub para obtener más detalles y no dudes en contactarme +51965669842 si tienes alguna pregunta  o sugerencia sobre este proyecto o cualquier otro aspecto de mi trabajo ! 
 
