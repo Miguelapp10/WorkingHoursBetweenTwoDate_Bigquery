@@ -1,0 +1,211 @@
+WITH
+  Fechas_Base AS (
+  SELECT
+    date,
+    FORMAT_DATE("%A", date) AS day_of_week,
+    EXTRACT(day
+    FROM
+      date) AS day,
+    EXTRACT(week
+    FROM
+      date) AS week,
+    EXTRACT(month
+    FROM
+      date) AS month,
+  FROM
+    UNNEST(GENERATE_DATE_ARRAY('2022-01-01', '2026-12-31')) AS date
+  ORDER BY
+    date ),
+  holidays AS (
+  SELECT
+    *
+  FROM (
+    SELECT
+      date AS fecha,
+      CASE
+        WHEN day_of_week = 'Sunday' THEN 1
+        WHEN day = 1
+      AND month = 1 THEN 1
+        WHEN date = '2023-04-07' THEN 1
+        WHEN date = '2023-04-06' THEN 1
+        WHEN date = '2024-03-28' THEN 1
+        WHEN date = '2024-03-29' THEN 1
+        WHEN date = '2025-04-17' THEN 1
+        WHEN date = '2025-04-18' THEN 1
+        WHEN day = 1 AND month = 5 THEN 1
+        WHEN day = 29
+      AND month = 6 THEN 1
+        WHEN day = 28 AND month = 7 THEN 1
+        WHEN day = 29
+      AND month = 7 THEN 1
+        WHEN day = 6 AND month = 8 THEN 1
+        WHEN day = 30
+      AND month = 8 THEN 1
+        WHEN day = 8 AND month = 10 THEN 1
+        WHEN day = 1
+      AND month = 11 THEN 1
+        WHEN day = 8 AND month = 12 THEN 1
+        WHEN day = 9
+      AND month = 12 THEN 1
+        WHEN day = 25 AND month = 12 THEN 1
+      ELSE
+      0
+    END
+      AS Exclusion
+    FROM
+      Fechas_Base)
+      WHERE
+    Exclusion = 1),
+  holidays_2 AS (
+  SELECT
+    *
+  FROM (
+    SELECT
+      date AS fecha,
+      CASE
+        WHEN day_of_week = 'Sunday' THEN 1
+        WHEN day = 1
+      AND month = 1 THEN 1
+        WHEN date = '2023-04-07' THEN 1
+        WHEN date = '2023-04-06' THEN 1
+        WHEN date = '2024-03-28' THEN 1
+        WHEN date = '2024-03-29' THEN 1
+        WHEN date = '2025-04-17' THEN 1
+        WHEN date = '2025-04-18' THEN 1
+        WHEN day = 1 AND month = 5 THEN 1
+        WHEN day = 29
+      AND month = 6 THEN 1
+        WHEN day = 28 AND month = 7 THEN 1
+        WHEN day = 29
+      AND month = 7 THEN 1
+        WHEN day = 6 AND month = 8 THEN 1
+        WHEN day = 30
+      AND month = 8 THEN 1
+        WHEN day = 8 AND month = 10 THEN 1
+        WHEN day = 1
+      AND month = 11 THEN 1
+        WHEN day = 8 AND month = 12 THEN 1
+        WHEN day = 9
+      AND month = 12 THEN 1
+        WHEN day = 25 AND month = 12 THEN 1
+      ELSE
+      0
+    END
+      AS Exclusion
+    FROM
+      Fechas_Base)
+  ),
+ Dates_Updated AS (
+  SELECT
+    DATETIME(TIMESTAMP(FECHAINCIO), 'America/Lima') AS FECHAINCIO_Mod1,
+    DATETIME(TIMESTAMP(FECHAFIN), 'America/Lima') AS FECHAFIN_Mod1,
+    *
+  FROM
+    `TAREA` ),
+  Date_updated_created AS (
+  SELECT
+    a.NUMERO,
+    a.FECHAINCIO_Mod1,
+    ARRAY(
+    SELECT
+      calendario
+    FROM
+      UNNEST( GENERATE_DATE_ARRAY(CAST(a.FECHAINCIO_Mod1 AS date), CAST(a.FECHAINCIO_Mod1 + INTERVAL 5 day AS date)) ) AS calendario
+    LEFT JOIN
+      holidays
+    ON
+      calendario = fecha
+    ORDER BY
+      fecha
+    NULLS FIRST
+      , calendario ASC
+    LIMIT
+      2 ) AS dates
+  FROM
+    Dates_Updated AS a ),
+  Date_updated_created_1 AS (
+  SELECT
+    *
+  FROM (
+    SELECT
+      a.FC_Number__c,
+      CASE
+        WHEN EXTRACT(hour FROM (a.FECHAINCIO_Mod1)) >= 18 AND SAFE_CAST(a.FECHAINCIO_Mod1 AS date) = dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(1)] + INTERVAL 8 hour
+        WHEN EXTRACT(hour FROM (a.FECHAINCIO_Mod1)) < 8 AND SAFE_CAST(a.FECHAINCIO_Mod1 AS date) = dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(0)] + INTERVAL 8 hour
+        WHEN SAFE_CAST(a.FECHAINCIO_Mod1 AS date) != dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(0)] + INTERVAL 8 hour
+      ELSE
+      a.FECHAINCIO_Mod1
+    END
+      AS FECHAINCIO_Mod2,
+    FROM
+      Date_updated_created AS a) ),
+  Date_updated_closed AS (
+  SELECT
+    t.NUMERO,
+    t.FECHAFIN_Mod1,
+    ARRAY(
+    SELECT
+      calendario
+    FROM
+      UNNEST( GENERATE_DATE_ARRAY(CAST(t.FECHAFIN_Mod1 AS date), CAST(t.FECHAFIN_Mod1 + INTERVAL 5 day AS date)) ) AS calendario
+    LEFT JOIN
+      holidays
+    ON
+      calendario = fecha
+    ORDER BY
+      fecha
+    NULLS FIRST
+      , calendario ASC
+    LIMIT
+      2 ) AS dates
+  FROM
+    Dates_Updated AS t ),
+  Date_updated_closed_1 AS (
+  SELECT
+    *,
+  FROM (
+    SELECT
+      t.FECHAFIN_Mod1,
+      CASE
+        WHEN EXTRACT(hour FROM (t.FECHAFIN_Mod1)) >= 18 AND SAFE_CAST(t.FECHAFIN_Mod1 AS date) = dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(1)] + INTERVAL 8 hour
+        WHEN EXTRACT(hour FROM (t.FECHAFIN_Mod1)) < 8 AND SAFE_CAST(t.FECHAFIN_Mod1 AS date) = dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(0)] + INTERVAL 8 hour
+        WHEN SAFE_CAST(t.FECHAFIN_Mod1 AS date) != dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(0)] + INTERVAL 8 hour
+      ELSE
+      t.FECHAFIN_Mod1
+    END
+      AS FECHAFIN_Mod2,
+      FC_Number__c
+    FROM
+      Date_updated_closed AS t)),
+  Calculo_Horas AS (
+  SELECT
+    *,
+    FECHAINCIO_Mod2 AS newFECHAINCIO,
+    FECHAFIN_Mod2 AS newFECHAFIN,
+    CASE
+      WHEN DATETIME_DIFF(FECHAFIN_Mod2, FECHAINCIO_Mod2, HOUR)<=10 THEN DATETIME_DIFF(FECHAFIN_Mod2, FECHAINCIO_Mod2, MINUTE)/60
+    ELSE
+    (DATETIME_DIFF(FECHAFIN_Mod2, FECHAINCIO_Mod2, MINUTE)/60 - DATETIME_DIFF(FECHAFIN_Mod2, FECHAINCIO_Mod2, HOUR)*14/24 - (
+      SELECT
+        SUM(Exclusion) * 10
+      FROM
+        holidays_2
+      WHERE
+        fecha >= DATE(FECHAINCIO_Mod2)
+        AND fecha <= DATE(FECHAFIN_Mod2) ))
+  END
+    AS Horas_Gestion
+  FROM (
+    SELECT
+    distinct
+      *
+    FROM
+      Date_updated_created_1
+    INNER JOIN
+      Date_updated_closed_1
+    USING
+      (NUMERO)
+    INNER JOIN
+      Dates_Updated
+    USING
+      (NUMERO)))
