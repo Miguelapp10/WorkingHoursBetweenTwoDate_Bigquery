@@ -108,19 +108,26 @@ WITH
     a.FECHAINCIO_Mod1,
     ARRAY(
     SELECT
-      calendario
+      calendario/*Generate 30 days after the current date to cover enough time interval*/
     FROM
-      UNNEST( GENERATE_DATE_ARRAY(CAST(a.FECHAINCIO_Mod1 AS date), CAST(a.FECHAINCIO_Mod1 + INTERVAL 5 day AS date)) ) AS calendario
+      UNNEST( GENERATE_DATE_ARRAY(CAST(a.FECHAINCIO_Mod1 AS date), CAST(a.FECHAINCIO_Mod1 + INTERVAL 30 day AS date)) ) AS calendario
+/*Identify holidays in these 30 future days*/
     LEFT JOIN
       holidays
     ON
-      calendario = fecha
+      calendario = fecha 
+/*Place non-holidays FIRST, THEN sort BY dates. It will arrange CURRENT date AT the FIRST place
+    IF
+      it IS NOT a holiday
+      OR the next working day AT the FIRST place
+    IF
+      CURRENT date IS holiday*/
     ORDER BY
       fecha
     NULLS FIRST
       , calendario ASC
     LIMIT
-      2 ) AS dates
+      2 ) AS dates /*To capture two consecutive working days to process times after 7 PM*/
   FROM
     Dates_Updated AS a ),
   Date_updated_created_1 AS (
@@ -130,9 +137,11 @@ WITH
     SELECT
       a.FC_Number__c,
       CASE
-        WHEN EXTRACT(hour FROM (a.FECHAINCIO_Mod1)) >= 18 AND SAFE_CAST(a.FECHAINCIO_Mod1 AS date) = dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(1)] + INTERVAL 8 hour
-        WHEN EXTRACT(hour FROM (a.FECHAINCIO_Mod1)) < 8 AND SAFE_CAST(a.FECHAINCIO_Mod1 AS date) = dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(0)] + INTERVAL 8 hour
-        WHEN SAFE_CAST(a.FECHAINCIO_Mod1 AS date) != dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(0)] + INTERVAL 8 hour
+        WHEN /*after 7 PM*/ EXTRACT(hour FROM (a.FECHAINCIO_Mod1)) >= 19 /* ... on working day - the first element of dates*/
+AND SAFE_CAST(a.FECHAINCIO_Mod1 AS date) = dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(1)] + INTERVAL 7 hour /*If current date is not a working day*/
+        WHEN /*before 7 AM*/EXTRACT(hour FROM (a.FECHAINCIO_Mod1)) < 7 /* ... on working day - the first element of dates*/ 
+AND SAFE_CAST(a.FECHAINCIO_Mod1 AS date) = dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(0)] + INTERVAL 7 hour /*If current date is not a working day*/
+        WHEN SAFE_CAST(a.FECHAINCIO_Mod1 AS date) != dates[SAFE_OFFSET(0)] /*... then get the next working day*/  THEN dates[SAFE_OFFSET(0)] + INTERVAL 7 hour
       ELSE
       a.FECHAINCIO_Mod1
     END
@@ -147,7 +156,7 @@ WITH
     SELECT
       calendario
     FROM
-      UNNEST( GENERATE_DATE_ARRAY(CAST(t.FECHAFIN_Mod1 AS date), CAST(t.FECHAFIN_Mod1 + INTERVAL 5 day AS date)) ) AS calendario
+      UNNEST( GENERATE_DATE_ARRAY(CAST(t.FECHAFIN_Mod1 AS date), CAST(t.FECHAFIN_Mod1 + INTERVAL 30 day AS date)) ) AS calendario
     LEFT JOIN
       holidays
     ON
@@ -167,9 +176,9 @@ WITH
     SELECT
       t.FECHAFIN_Mod1,
       CASE
-        WHEN EXTRACT(hour FROM (t.FECHAFIN_Mod1)) >= 18 AND SAFE_CAST(t.FECHAFIN_Mod1 AS date) = dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(1)] + INTERVAL 8 hour
-        WHEN EXTRACT(hour FROM (t.FECHAFIN_Mod1)) < 8 AND SAFE_CAST(t.FECHAFIN_Mod1 AS date) = dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(0)] + INTERVAL 8 hour
-        WHEN SAFE_CAST(t.FECHAFIN_Mod1 AS date) != dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(0)] + INTERVAL 8 hour
+        WHEN EXTRACT(hour FROM (t.FECHAFIN_Mod1)) >= 19 AND SAFE_CAST(t.FECHAFIN_Mod1 AS date) = dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(1)] + INTERVAL 7 hour
+        WHEN EXTRACT(hour FROM (t.FECHAFIN_Mod1)) < 7 AND SAFE_CAST(t.FECHAFIN_Mod1 AS date) = dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(0)] + INTERVAL 7 hour
+        WHEN SAFE_CAST(t.FECHAFIN_Mod1 AS date) != dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(0)] + INTERVAL 7 hour
       ELSE
       t.FECHAFIN_Mod1
     END
@@ -183,11 +192,11 @@ WITH
     FECHAINCIO_Mod2 AS newFECHAINCIO,
     FECHAFIN_Mod2 AS newFECHAFIN,
     CASE
-      WHEN DATETIME_DIFF(FECHAFIN_Mod2, FECHAINCIO_Mod2, HOUR)<=10 THEN DATETIME_DIFF(FECHAFIN_Mod2, FECHAINCIO_Mod2, MINUTE)/60
+      WHEN DATETIME_DIFF(FECHAFIN_Mod2, FECHAINCIO_Mod2, HOUR)<=12 THEN DATETIME_DIFF(FECHAFIN_Mod2, FECHAINCIO_Mod2, MINUTE)/60
     ELSE
-    (DATETIME_DIFF(FECHAFIN_Mod2, FECHAINCIO_Mod2, MINUTE)/60 - DATETIME_DIFF(FECHAFIN_Mod2, FECHAINCIO_Mod2, HOUR)*14/24 - (
+    (DATETIME_DIFF(FECHAFIN_Mod2, FECHAINCIO_Mod2, MINUTE)/60 - DATETIME_DIFF(FECHAFIN_Mod2, FECHAINCIO_Mod2, HOUR)*12/24 - (
       SELECT
-        SUM(Exclusion) * 10
+        SUM(Exclusion) * 12
       FROM
         holidays_2
       WHERE
