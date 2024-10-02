@@ -1,220 +1,146 @@
 WITH
-  Fechas_Base AS (
+  feriados AS (
   SELECT
-    date,
-    FORMAT_DATE("%A", date) AS day_of_week,
-    EXTRACT(day
-    FROM
-      date) AS day,
-    EXTRACT(week
-    FROM
-      date) AS week,
-    EXTRACT(month
-    FROM
-      date) AS month,
+    date AS fecha,
+  IF
+    (FORMAT_DATE("%A", date) IN ( 'Sunday')
+      OR FORMAT_DATE("%m-%d", date) IN ('01-01',
+        '05-01',
+        '06-29',
+        '07-28',
+        '07-29',
+        '08-06',
+        '08-30',
+        '10-08',
+        '11-01',
+        '12-08',
+        '12-09',
+        '12-25')
+      OR date IN ('2023-04-06',
+        '2023-04-07',
+        '2024-03-28',
+        '2024-03-29',
+        '2025-04-17',
+        '2025-04-18'), 1, 0) AS T_feriado
   FROM
-    UNNEST(GENERATE_DATE_ARRAY('2022-01-01', '2026-12-31')) AS date
-  ORDER BY
-    date ),
-  holidays AS (
+    UNNEST(GENERATE_DATE_ARRAY('2023-01-01', '2024-12-31')) AS date),
+  feriados_2 AS(
   SELECT
-    *
-  FROM (
-    SELECT
-      date AS fecha,
-      CASE
-        WHEN day_of_week = 'Sunday' THEN 1
-        WHEN day = 1
-      AND month = 1 THEN 1
-        WHEN date = '2023-04-07' THEN 1
-        WHEN date = '2023-04-06' THEN 1
-        WHEN date = '2024-03-28' THEN 1
-        WHEN date = '2024-03-29' THEN 1
-        WHEN date = '2025-04-17' THEN 1
-        WHEN date = '2025-04-18' THEN 1
-        WHEN day = 1 AND month = 5 THEN 1
-        WHEN day = 29
-      AND month = 6 THEN 1
-        WHEN day = 28 AND month = 7 THEN 1
-        WHEN day = 29
-      AND month = 7 THEN 1
-        WHEN day = 6 AND month = 8 THEN 1
-        WHEN day = 30
-      AND month = 8 THEN 1
-        WHEN day = 8 AND month = 10 THEN 1
-        WHEN day = 1
-      AND month = 11 THEN 1
-        WHEN day = 8 AND month = 12 THEN 1
-        WHEN day = 9
-      AND month = 12 THEN 1
-        WHEN day = 25 AND month = 12 THEN 1
-      ELSE
-      0
-    END
-      AS Exclusion
-    FROM
-      Fechas_Base)
-      WHERE
-    Exclusion = 1),
-  holidays_2 AS (
-  SELECT
-    *
-  FROM (
-    SELECT
-      date AS fecha,
-      CASE
-        WHEN day_of_week = 'Sunday' THEN 1
-        WHEN day = 1
-      AND month = 1 THEN 1
-        WHEN date = '2023-04-07' THEN 1
-        WHEN date = '2023-04-06' THEN 1
-        WHEN date = '2024-03-28' THEN 1
-        WHEN date = '2024-03-29' THEN 1
-        WHEN date = '2025-04-17' THEN 1
-        WHEN date = '2025-04-18' THEN 1
-        WHEN day = 1 AND month = 5 THEN 1
-        WHEN day = 29
-      AND month = 6 THEN 1
-        WHEN day = 28 AND month = 7 THEN 1
-        WHEN day = 29
-      AND month = 7 THEN 1
-        WHEN day = 6 AND month = 8 THEN 1
-        WHEN day = 30
-      AND month = 8 THEN 1
-        WHEN day = 8 AND month = 10 THEN 1
-        WHEN day = 1
-      AND month = 11 THEN 1
-        WHEN day = 8 AND month = 12 THEN 1
-        WHEN day = 9
-      AND month = 12 THEN 1
-        WHEN day = 25 AND month = 12 THEN 1
-      ELSE
-      0
-    END
-      AS Exclusion
-    FROM
-      Fechas_Base)
-  ),
- Dates_Updated AS (
-  SELECT
-    DATETIME(TIMESTAMP(FECHAINCIO), 'America/Lima') AS FECHAINCIO_Mod1,
-    DATETIME(TIMESTAMP(FECHAFIN), 'America/Lima') AS FECHAFIN_Mod1,
-    *
+    fecha AS feriado
   FROM
-    `TAREA` ),
-  Date_updated_created AS (
+    feriados
+  WHERE
+    T_feriado= 1),
+  Sales_task AS (
   SELECT
-    a.NUMERO,
-    a.FECHAINCIO_Mod1,
-    ARRAY(
-    SELECT
-      calendario/*Generate 30 days after the current date to cover enough time interval*/
-    FROM
-      UNNEST( GENERATE_DATE_ARRAY(CAST(a.FECHAINCIO_Mod1 AS date), CAST(a.FECHAINCIO_Mod1 + INTERVAL 30 day AS date)) ) AS calendario
-/*Identify holidays in these 30 future days*/
-    LEFT JOIN
-      holidays
-    ON
-      calendario = fecha 
-/*Place non-holidays FIRST, THEN sort BY dates. It will arrange CURRENT date AT the FIRST place
-    IF
-      it IS NOT a holiday
-      OR the next working day AT the FIRST place
-    IF
-      CURRENT date IS holiday*/
-    ORDER BY
-      fecha
-    NULLS FIRST
-      , calendario ASC
-    LIMIT
-      2 ) AS dates /*To capture two consecutive working days to process times after 7 PM*/
-  FROM
-    Dates_Updated AS a ),
-  Date_updated_created_1 AS (
-  SELECT
-    *
-  FROM (
-    SELECT
-      a.FC_Number__c,
-      CASE
-        WHEN /*after 7 PM*/ EXTRACT(hour FROM (a.FECHAINCIO_Mod1)) >= 19 /* ... on working day - the first element of dates*/
-AND SAFE_CAST(a.FECHAINCIO_Mod1 AS date) = dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(1)] + INTERVAL 7 hour /*If current date is not a working day*/
-        WHEN /*before 7 AM*/EXTRACT(hour FROM (a.FECHAINCIO_Mod1)) < 7 /* ... on working day - the first element of dates*/ 
-AND SAFE_CAST(a.FECHAINCIO_Mod1 AS date) = dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(0)] + INTERVAL 7 hour /*If current date is not a working day*/
-        WHEN SAFE_CAST(a.FECHAINCIO_Mod1 AS date) != dates[SAFE_OFFSET(0)] /*... then get the next working day*/  THEN dates[SAFE_OFFSET(0)] + INTERVAL 7 hour
-      ELSE
-      a.FECHAINCIO_Mod1
-    END
-      AS FECHAINCIO_Mod2,
-    FROM
-      Date_updated_created AS a) ),
-  Date_updated_closed AS (
-  SELECT
-    t.NUMERO,
-    t.FECHAFIN_Mod1,
-    ARRAY(
-    SELECT
-      calendario
-    FROM
-      UNNEST( GENERATE_DATE_ARRAY(CAST(t.FECHAFIN_Mod1 AS date), CAST(t.FECHAFIN_Mod1 + INTERVAL 30 day AS date)) ) AS calendario
-    LEFT JOIN
-      holidays
-    ON
-      calendario = fecha
-    ORDER BY
-      fecha
-    NULLS FIRST
-      , calendario ASC
-    LIMIT
-      2 ) AS dates
-  FROM
-    Dates_Updated AS t ),
-  Date_updated_closed_1 AS (
-  SELECT
-    *,
-  FROM (
-    SELECT
-      t.FECHAFIN_Mod1,
-      CASE
-        WHEN EXTRACT(hour FROM (t.FECHAFIN_Mod1)) >= 19 AND SAFE_CAST(t.FECHAFIN_Mod1 AS date) = dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(1)] + INTERVAL 7 hour
-        WHEN EXTRACT(hour FROM (t.FECHAFIN_Mod1)) < 7 AND SAFE_CAST(t.FECHAFIN_Mod1 AS date) = dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(0)] + INTERVAL 7 hour
-        WHEN SAFE_CAST(t.FECHAFIN_Mod1 AS date) != dates[SAFE_OFFSET(0)] THEN dates[SAFE_OFFSET(0)] + INTERVAL 7 hour
-      ELSE
-      t.FECHAFIN_Mod1
-    END
-      AS FECHAFIN_Mod2,
-      FC_Number__c
-    FROM
-      Date_updated_closed AS t)),
-  Calculo_Horas AS (
-  SELECT
-    *,
-    FECHAINCIO_Mod2 AS newFECHAINCIO,
-    FECHAFIN_Mod2 AS newFECHAFIN,
+    DISTINCT *,
     CASE
-      WHEN DATETIME_DIFF(FECHAFIN_Mod2, FECHAINCIO_Mod2, HOUR)<=12 THEN DATETIME_DIFF(FECHAFIN_Mod2, FECHAINCIO_Mod2, MINUTE)/60
-    ELSE
-    (DATETIME_DIFF(FECHAFIN_Mod2, FECHAINCIO_Mod2, MINUTE)/60 - DATETIME_DIFF(FECHAFIN_Mod2, FECHAINCIO_Mod2, HOUR)*12/24 - (
-      SELECT
-        SUM(Exclusion) * 12
-      FROM
-        holidays_2
-      WHERE
-        fecha >= DATE(FECHAINCIO_Mod2)
-        AND fecha <= DATE(FECHAFIN_Mod2) ))
+      WHEN T_SLA >= T_Horas_Gestion THEN 1
+      WHEN T_SLA < T_Horas_Gestion THEN 0
   END
-    AS Horas_Gestion
+    AS TCumplimiento,
+  IF
+    (T_Horas_Gestion<=24,'00_24',
+    IF
+      (24 <T_Horas_Gestion
+        AND T_Horas_Gestion<=48,'24_48',
+      IF
+        (48 <T_Horas_Gestion
+          AND T_Horas_Gestion<=72,'48_72','72_00' ))) AS Rango_TGestion
   FROM (
     SELECT
-    distinct
-      *
+      *,
+      CASE
+        WHEN DATETIME_DIFF(T_CompletedDateTime1, T_CreatedDate1, HOUR)<=9 THEN DATETIME_DIFF(T_CompletedDateTime1, T_CreatedDate1, MINUTE)/60
+        ELSE (DATETIME_DIFF(T_CompletedDateTime1, T_CreatedDate1, MINUTE)/60 - (FLOOR(DATETIME_DIFF(T_CompletedDateTime1, T_CreatedDate1, day) /*(
+          SELECT
+            SUM(T_feriado)
+          FROM
+            feriados
+          WHERE
+            fecha >= DATE(T_CreatedDate1)
+            AND fecha <= DATE(T_CompletedDateTime1) ) 15)*/- (
+        SELECT
+          SUM(T_feriado)
+        FROM
+          feriados
+        WHERE
+          fecha >= DATE(T_CreatedDate1)
+          AND fecha <= DATE(T_CompletedDateTime1) )*24 )))
+END
+  AS T_Horas_Gestion
+FROM (
+  SELECT
+    DISTINCT /**/CASE
+      WHEN EXTRACT(HOUR FROM T_CreatedDate) >= 17 THEN TIMESTAMP_TRUNC( TIMESTAMP_ADD(T_CreatedDate, INTERVAL ( SELECT MIN(dias) FROM UNNEST(GENERATE_ARRAY(1, 5)) AS dias WHERE NOT ( EXTRACT(DAYOFWEEK FROM DATE_ADD(DATE(T_CreatedDate), INTERVAL dias DAY)) IN (1) OR DATE_ADD(DATE(T_CreatedDate), INTERVAL dias DAY) IN ( SELECT feriado FROM feriados_2) ) ) DAY), DAY) + INTERVAL 8 HOUR
+      WHEN DATE(T_CreatedDate) IN (
+    SELECT
+      feriado
     FROM
-      Date_updated_created_1
-    INNER JOIN
-      Date_updated_closed_1
-    USING
-      (NUMERO)
-    INNER JOIN
-      Dates_Updated
-    USING
-      (NUMERO)))
+      feriados_2)
+    OR EXTRACT(DAYOFWEEK
+    FROM
+      DATE(T_CreatedDate)) IN (1) THEN TIMESTAMP_TRUNC( TIMESTAMP_ADD(T_CreatedDate, INTERVAL (
+        SELECT
+          MIN(dias)
+        FROM
+          UNNEST(GENERATE_ARRAY(1, 5)) AS dias
+        WHERE
+          NOT ( EXTRACT(DAYOFWEEK
+            FROM
+              DATE_ADD(DATE(T_CreatedDate), INTERVAL dias DAY)) IN (1)
+            OR DATE_ADD(DATE(T_CreatedDate), INTERVAL dias DAY) IN (
+            SELECT
+              feriado
+            FROM
+              feriados_2) ) ) DAY), DAY) + INTERVAL 8 HOUR
+      WHEN EXTRACT(HOUR FROM T_CreatedDate) BETWEEN 8 AND 17 THEN T_CreatedDate
+      WHEN EXTRACT(HOUR
+    FROM
+      T_CreatedDate) < 8 THEN TIMESTAMP_TRUNC(T_CreatedDate, DAY) + INTERVAL 8 HOUR
+      ELSE T_CreatedDate
+  END
+    AS T_CreatedDate1,
+    CASE
+      WHEN EXTRACT(HOUR FROM T_CompletedDateTime) >= 17 THEN TIMESTAMP_TRUNC( TIMESTAMP_ADD( T_CompletedDateTime, INTERVAL ( SELECT MIN(dias) FROM UNNEST(GENERATE_ARRAY(1, 5)) AS dias WHERE NOT ( EXTRACT(DAYOFWEEK FROM DATE_ADD(DATE(T_CompletedDateTime), INTERVAL dias DAY)) IN (1) OR DATE_ADD(DATE(T_CompletedDateTime), INTERVAL dias DAY) IN ( SELECT feriado FROM feriados_2) ) ) DAY ), DAY ) + INTERVAL 8 HOUR
+      WHEN DATE(T_CompletedDateTime) IN (
+    SELECT
+      feriado
+    FROM
+      feriados_2)
+    OR EXTRACT(DAYOFWEEK
+    FROM
+      DATE(T_CompletedDateTime)) IN (1) THEN TIMESTAMP_TRUNC( TIMESTAMP_ADD( T_CompletedDateTime, INTERVAL (
+        SELECT
+          MIN(dias)
+        FROM
+          UNNEST(GENERATE_ARRAY(1, 5)) AS dias
+        WHERE
+          NOT ( EXTRACT(DAYOFWEEK
+            FROM
+              DATE_ADD(DATE(T_CompletedDateTime), INTERVAL dias DAY)) IN (1)
+            OR DATE_ADD(DATE(T_CompletedDateTime), INTERVAL dias DAY) IN (
+            SELECT
+              feriado
+            FROM
+              feriados_2) ) ) DAY ), DAY ) + INTERVAL 8 HOUR
+      WHEN EXTRACT(HOUR FROM T_CompletedDateTime) BETWEEN 8 AND 17 THEN T_CompletedDateTime
+      WHEN EXTRACT(HOUR
+    FROM
+      T_CompletedDateTime) < 8 THEN TIMESTAMP_TRUNC(T_CompletedDateTime, DAY) + INTERVAL 8 HOUR
+      ELSE T_CompletedDateTime
+  END
+    AS T_CompletedDateTime1,
+
+  FROM (
+    SELECT
+      FC_Case__c,
+      FC_Number__c,
+      DATETIME(TIMESTAMP(CreatedDate), 'America/Lima') AS T_CreatedDate,
+      DATETIME(TIMESTAMP(CompletedDateTime), 'America/Lima') AS T_CompletedDateTime,  
+    FROM
+     TAREA
+    QUALIFY
+      ROW = 1 ) b
+
+ )))
